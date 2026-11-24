@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PSE Energia | Analisador comercial e operacional</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--tx:#1b1f27;--mut:#6b7280;--bd:#e3e6ec;--ac:#1d4ed8;--ok:#15803d;--bad:#b91c1c;--hd:#eef1f6}
+@media(prefers-color-scheme:dark){:root{--bg:#12151b;--card:#1a1e26;--tx:#e8eaef;--mut:#9aa3b2;--bd:#2b313c;--ac:#6ea0ff;--ok:#4ade80;--bad:#f87171;--hd:#222833}}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 system-ui,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--tx);padding:20px}
+h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:0 0 10px}
+.sub{color:var(--mut);margin-bottom:16px}
+#drop{border:2px dashed var(--bd);border-radius:12px;background:var(--card);padding:36px 20px;text-align:center;cursor:pointer;transition:.15s}
+#drop.over{border-color:var(--ac);background:var(--hd)}
+#drop b{font-size:16px}#drop small{display:block;color:var(--mut);margin-top:6px}
+#msg{margin:12px 0;color:var(--mut)}#msg.err{color:var(--bad)}
+#out{display:none}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:18px 0}
+.kpi{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px 14px}
+.kpi span{display:block;color:var(--mut);font-size:12px}.kpi strong{font-size:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px;overflow:hidden}
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:6px 8px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}
+th{background:var(--hd);position:sticky;top:0;cursor:pointer;user-select:none}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tfoot td{font-weight:700;background:var(--hd)}
+.bar{height:6px;background:var(--ac);border-radius:3px;min-width:2px}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+input,select,button{font:inherit;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:var(--tx)}
+button{cursor:pointer}button.p{background:var(--ac);color:#fff;border-color:var(--ac)}
+.pg{display:flex;gap:8px;align-items:center;margin-top:10px;color:var(--mut)}
+.tag{padding:1px 8px;border-radius:99px;font-size:12px;background:var(--hd)}
+.tag.p{color:var(--ok)}.tag.i{color:var(--bad)}
+
+.cg{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:14px}
+.hb{display:grid;grid-template-columns:130px 1fr auto;gap:8px;align-items:center;margin:7px 0;font-size:13px}
+.hb .tr{background:var(--hd);border-radius:6px;height:20px;overflow:hidden}
+.hb .fl{height:100%;border-radius:6px}
+.hb b{font-variant-numeric:tabular-nums;font-weight:600}
+.vb{display:flex;align-items:flex-end;gap:6px;height:230px;padding-top:22px;overflow-x:auto}
+.vb .c{flex:1;min-width:34px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:11px;color:var(--mut)}
+.vb .c i{display:block;width:100%;border-radius:5px 5px 0 0;min-height:2px}
+.vb .c em{font-style:normal;color:var(--tx);font-size:10px;margin-bottom:2px;white-space:nowrap}
+
+.ds{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px}
+.ds div{background:var(--hd);border-radius:8px;padding:8px 12px}
+.ds span{display:block;color:var(--mut);font-size:12px}.ds strong{font-size:16px}
+.dsc{overflow-x:auto;padding-bottom:6px}
+.dp{min-width:calc(var(--n)*62px)}
+.plot{position:relative;height:300px;border-bottom:1px solid var(--bd)}
+.cols{display:flex;gap:8px;height:100%;padding:0 4px}
+.col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:11px}
+.col em{font-style:normal;font-weight:600;margin-bottom:3px;white-space:nowrap}
+.col i{display:block;width:100%;border-radius:6px 6px 0 0;min-height:2px}
+.avg{position:absolute;left:0;right:0;border-top:2px dashed var(--mut);z-index:2;pointer-events:none}
+.avg b{position:absolute;right:0;top:-18px;font-size:11px;color:var(--mut);background:var(--card);padding:0 4px}
+.lbls{display:flex;gap:8px;padding:6px 4px 0}
+.lbls div{flex:1;text-align:center;font-size:11px;color:var(--mut);line-height:1.35}
+.lbls strong{display:block;color:var(--tx);font-size:12px}
+
+.tabs{display:flex;gap:6px;margin:0 0 16px;border-bottom:1px solid var(--bd)}
+.tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;padding:9px 16px;font-weight:600;color:var(--mut)}
+.tabs button.on{color:var(--ac);border-bottom-color:var(--ac)}
+input{color-scheme:light dark}label{color:var(--mut);display:inline-flex;gap:6px;align-items:center}
+.th{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.tg{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:12px;max-height:640px;overflow-y:auto;padding:2px}
+.tc{border:1px solid var(--bd);border-radius:12px;padding:12px 14px;background:var(--bg);display:flex;flex-direction:column;gap:6px}
+.tc .h{display:flex;align-items:center;gap:8px;font-weight:600;overflow:hidden}
+.tc .h span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rk{flex:none;min-width:26px;text-align:center;font-size:11px;font-weight:700;padding:2px 6px;border-radius:99px;background:var(--hd);color:var(--mut)}
+.rk.r1{background:#d7bf86;color:#fff}.rk.r2{background:#94a3b8;color:#fff}.rk.r3{background:#b7791f;color:#fff}
+.tc .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.tc .m{display:flex;justify-content:space-between;gap:6px;font-size:12px;color:var(--mut)}.tc .m b{display:block;color:var(--tx);font-size:13px}
+.tc .pb{height:6px;background:var(--hd);border-radius:3px;overflow:hidden}.tc .pb i{display:block;height:100%;background:linear-gradient(90deg,#2563eb,#06b6d4);border-radius:3px}
+.tc small{color:var(--mut);font-size:11px}
+
+.rs{border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:var(--card);display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.rs .hd{grid-column:1/-1;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;text-align:center;padding:16px;font-size:20px;font-weight:800;letter-spacing:.5px}
+.rs .sec{padding:6px 22px 10px;border-right:1px solid var(--bd)}
+.rs .sec:last-child{border-right:0;background:var(--hd)}
+.rs .st{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--mut);margin:12px 0 4px}
+.rs .ln{display:grid;grid-template-columns:1fr 34px 150px;gap:6px;padding:6px 0;align-items:center;font-size:14px}
+.rs .ln .cur{color:var(--mut);font-size:12px}.rs .ln .val{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.rs .ln.pc{border-top:1px solid var(--bd);margin-top:4px;padding-top:10px}.rs .ln.pc .val{font-size:16px}
+.rs .ln.big{font-weight:700}.rs .ln.big .val{font-size:16px}
+.rs .bar2{height:8px;border-radius:4px;background:var(--bd);overflow:hidden;margin:0 0 6px}.rs .bar2 i{display:block;height:100%;border-radius:4px}
+.rk4{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:16px}
+.rg{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;margin-bottom:16px}.rg .card{margin-bottom:0}.rg .full{grid-column:1/-1}
+.lg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:8px}.lg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
+.cty{margin-left:auto;flex:none;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;letter-spacing:.3px}.cty.mag{background:#dbeafe;color:#1d4ed8}.cty.nit{background:#ffedd5;color:#c2410c}.cty.mix{background:var(--hd);color:var(--mut)}
+@media(prefers-color-scheme:dark){.cty.mag{background:#1e3a8a;color:#bfdbfe}.cty.nit{background:#7c2d12;color:#fed7aa}}
+
+/* PSE · Interface visual — lógica original preservada */
+:root{color-scheme:dark;--bg:#080e1c;--card:#101b30;--tx:#edf3ff;--mut:#a0b0c9;--bd:#24334d;--ac:#5ce1e6;--ok:#5de0ae;--bad:#ff859b;--hd:#18263d}
+@media(prefers-color-scheme:dark){:root{--bg:#080e1c;--card:#101b30;--tx:#edf3ff;--mut:#a0b0c9;--bd:#24334d;--ac:#5ce1e6;--ok:#5de0ae;--bad:#ff859b;--hd:#18263d}}
+html{min-height:100%;background:var(--bg)}
+body{max-width:1680px;margin:auto;padding:36px clamp(18px,3.5vw,64px) 64px;font:14px/1.6 'Segoe UI',system-ui,sans-serif;background:radial-gradient(ellipse at 10% 0%,#17344766,transparent 38%),radial-gradient(ellipse at 95% 12%,#39265a44,transparent 38%),var(--bg);min-height:100vh}
+body:before{content:'';position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(#8eb6e104 1px,transparent 1px),linear-gradient(90deg,#8eb6e104 1px,transparent 1px);background-size:48px 48px;z-index:-1}
+.masthead{display:flex;align-items:center;justify-content:space-between;gap:20px;padding-bottom:24px;margin-bottom:32px;border-bottom:1px solid var(--bd)}
+.brand{display:flex;align-items:center;gap:12px;font-size:16px;font-weight:750;letter-spacing:.5px}.brand small{display:block;color:var(--mut);font-size:10px;letter-spacing:2px;font-weight:500}
+.brandmark{display:grid;place-items:center;width:45px;height:45px;border:1px solid #5ce1e65c;border-radius:14px;background:linear-gradient(135deg,#5ce1e622,#ad8cff22);color:var(--ac);box-shadow:0 0 24px #5ce1e611}.brandmark svg{width:25px;height:25px}
+.local-badge{font-size:11px;color:#b6d8d6;background:#5ce1e60a;border:1px solid #5ce1e62b;border-radius:99px;padding:7px 13px;display:flex;align-items:center;gap:8px}.local-badge i{height:6px;width:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px #5de0ae77}
+.eyebrow{color:var(--ac);font-size:11px;font-weight:700;letter-spacing:2px;margin-bottom:8px}h1{font-size:clamp(25px,3vw,38px);font-weight:700;letter-spacing:-1.2px;line-height:1.25;margin-bottom:12px}h2{font-size:14px;font-weight:650;letter-spacing:.1px;margin-bottom:22px;display:flex;align-items:center;gap:10px}h2:before{content:'';width:4px;height:14px;background:linear-gradient(var(--ac),#a78bfa);border-radius:4px;flex-shrink:0}.sub{font-size:13px;max-width:950px;margin-bottom:26px}
+#drop{position:relative;overflow:hidden;border:1px dashed #46647e;border-radius:20px;padding:30px 24px;background:linear-gradient(115deg,#102a3999,#171c3499);transition:background .25s,border-color .25s,box-shadow .25s;outline-offset:5px}
+#drop:hover,#drop.over{border-color:var(--ac);background:#142c40;box-shadow:0 0 36px #5ce1e60d}#drop b{font-size:16px;font-weight:600;color:#edfaff}#drop small{font-size:12px;margin-top:8px}.upload-icon{display:flex;align-items:center;justify-content:center;margin:0 auto 12px;width:44px;height:44px;border:1px solid #5ce1e640;border-radius:13px;background:#5ce1e60a;color:var(--ac)}.upload-icon svg{width:24px;height:24px}
+#msg{font-size:12px;min-height:8px;margin:12px 0 20px;overflow-wrap:anywhere}
+.tabs{gap:6px;background:#0d1729;border:1px solid var(--bd);padding:6px;border-radius:14px;display:inline-flex;max-width:100%;margin-bottom:24px;overflow-x:auto}
+.tabs button{font-size:12px;letter-spacing:.6px;white-space:nowrap;border:1px solid transparent;border-radius:9px;padding:12px 24px;transition:background .2s,color .2s}.tabs button:hover{color:var(--tx);background:#19283d}.tabs button.on{background:linear-gradient(110deg,#173d49,#202d49);color:#94f4f0;border:1px solid #5ce1e63b;box-shadow:0 3px 12px #0002}
+#msgC,#msgE,#msgR{padding:32px 24px;border:1px solid var(--bd);border-radius:16px;background:linear-gradient(110deg,#101c2c,#111a2c);text-align:center;font-size:13px}
+.kpis,.rk4{grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:16px;margin:0 0 24px}
+.kpi{position:relative;isolation:isolate;overflow:hidden;padding:25px 22px 28px;border:1px solid #2c405a;border-radius:18px;background:linear-gradient(125deg,#15273c,#101a2e);box-shadow:0 8px 28px #0002;min-height:137px;transition:transform .25s,border-color .25s,box-shadow .25s;animation:rise .55s ease both}
+.kpi:nth-child(3n+2){--accent:#b39aff;background:linear-gradient(125deg,#25223e,#141b30)}.kpi:nth-child(3n){--accent:#64ddb8;background:linear-gradient(125deg,#142e33,#101b2d)}.kpi{--accent:var(--ac)}
+.kpi:before{content:'';position:absolute;top:0;left:22px;right:22px;height:2px;background:linear-gradient(90deg,var(--accent),transparent)}.kpi:after{content:'';position:absolute;right:-20px;bottom:-35px;width:125px;height:125px;border:1px solid var(--accent);opacity:.09;border-radius:50%;box-shadow:0 0 0 18px #9ab9de12,0 0 0 36px #9ab9de08;z-index:-1}
+.kpi span{font-size:11px;letter-spacing:.45px;font-weight:600;margin-bottom:14px;color:#b4c5db}.kpi strong{display:block;font-size:clamp(19px,1.7vw,27px);letter-spacing:-.6px;line-height:1.3;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;color:#f4f8ff}.kpi:hover{transform:translateY(-4px);border-color:var(--accent);box-shadow:0 10px 32px #0004}.kpi:nth-child(2){animation-delay:.05s}.kpi:nth-child(3){animation-delay:.1s}.kpi:nth-child(4){animation-delay:.15s}
+.card{padding:24px;border-radius:18px;background:linear-gradient(140deg,#111e32,#0e192b);border-color:var(--bd);box-shadow:0 8px 30px #00000012;margin-bottom:18px;min-width:0}.cg,.grid,.rg{gap:18px}.cg{grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr))}.grid,.rg{grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))}
+.tools{gap:12px;align-items:center}#c-bar,#e-bar{padding:16px 20px;border:1px solid var(--bd);border-radius:14px;background:#101b2e;font-size:12px}label{gap:8px;font-size:12px;flex-wrap:wrap}input,select,button{border-radius:9px;padding:9px 12px;background:#0b1527;border-color:#30425d;transition:border-color .2s,background .2s;min-height:40px}input{color-scheme:dark}input::placeholder{color:#93a4bf}input:hover,select:hover,button:hover{border-color:#527187}button:hover{background:#1b3046}button:active{transform:translateY(1px)}:focus-visible{outline:2px solid var(--ac);outline-offset:3px}button.p{background:#185b69;color:#efffff}input[type=date]{max-width:100%}
+table{font-size:12px}th,td{padding:12px 14px}th{font-size:10px;letter-spacing:.6px;text-transform:uppercase;background:#19283e;color:#c1d1e8}tbody tr:hover{background:#5ce1e608}tfoot td{background:#17273b}td.n{font-weight:550}.bar{background:linear-gradient(90deg,#448cf7,#5ce1e6);height:4px}.wrap{border:1px solid var(--bd);border-radius:11px}
+.hb{grid-template-columns:minmax(85px,125px) minmax(30px,1fr) auto;gap:12px;margin:15px 0;font-size:12px}.hb>span{overflow-wrap:anywhere}.hb b{font-size:12px}.hb .tr{height:10px;background:#1c2c43}.hb .fl{border-radius:8px;animation:bar-in .8s ease both;transform-origin:left;filter:saturate(.8) brightness(1.3)}.col i,.vb .c i{animation:bar-up .8s ease both;transform-origin:bottom;filter:saturate(.8) brightness(1.2);box-shadow:0 -6px 20px #5ce1e60a}.plot{background:repeating-linear-gradient(to top,transparent 0,transparent 59px,#a9c6ec0a 59px,#a9c6ec0a 60px)}.ds{gap:12px;margin-bottom:24px}.ds div{padding:14px 16px;border:1px solid var(--bd);border-radius:12px;background:#15243a}.ds strong{display:block;font-size:19px;margin-top:6px}.avg{opacity:.8}
+.tg{gap:16px;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));padding:4px;max-height:760px}.tc{padding:20px;border-radius:15px;background:linear-gradient(135deg,#18273d,#101c30);border-color:#2b3d58;gap:13px;transition:transform .2s,border-color .2s}.tc:hover{transform:translateY(-3px);border-color:#5ce1e670}.tc .v{font-size:25px;letter-spacing:-.5px}.tc .m{font-size:10px;gap:8px}.tc .m b{margin-top:5px;font-size:12px}.tc .pb{height:4px}.tc .pb i{background:linear-gradient(90deg,#a78bfa,#5ce1e6)}.tc small{font-size:10px}.cty.mag{background:#163a53;color:#a2d9ff}.cty.nit{background:#453323;color:#ffd5a5}.cty.mix{background:var(--hd);color:var(--mut)}
+.rs{border-radius:18px}.rs .hd{background:linear-gradient(110deg,#173d49,#292642);text-align:left;padding:22px 26px;font-size:17px}.rs .sec{padding:12px 24px 24px;min-width:0}.rs .sec:last-child{background:#142237}.rs .st{color:var(--ac);margin:15px 0;font-size:10px;letter-spacing:1.5px}.rs .ln{font-size:12px;grid-template-columns:minmax(0,1fr) 20px minmax(90px,125px);padding:10px 0}.rs .ln .val{font-size:13px;overflow-wrap:anywhere}.rs .ln.pc .val,.rs .ln.big .val{font-size:17px}.lg{font-size:11px;gap:16px}.rg svg{overflow:visible}.pg{flex-wrap:wrap}#pane-c,#pane-e,#pane-r{animation:rise .4s ease both}
+.footer{margin-top:36px;padding-top:20px;border-top:1px solid var(--bd);display:flex;justify-content:space-between;gap:12px;color:#8fa1bd;font-size:10px;letter-spacing:.7px;flex-wrap:wrap}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}@keyframes bar-in{from{transform:scaleX(0)}to{transform:scaleX(1)}}@keyframes bar-up{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@media(min-width:1250px){#kpis{grid-template-columns:repeat(3,minmax(0,1fr))}#e-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:640px){body{padding:22px 16px 36px}.masthead{margin-bottom:24px}.local-badge{font-size:0;padding:10px}.local-badge i{margin:0}h1{letter-spacing:-.7px}.tabs{display:flex;width:100%}.tabs button{flex:1;padding:10px 12px;font-size:10px}.card{padding:18px 14px}.kpis,.rk4{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi{padding:18px 14px;min-height:124px}.kpi strong{font-size:19px}.kpi span{font-size:10px}.tools{align-items:stretch}.tools input,.tools select{min-width:0!important;max-width:100%}.th>.tools{width:100%}.th>.tools>*{flex:1 1 140px}.hb{grid-template-columns:85px minmax(20px,1fr) auto;gap:8px;font-size:10px}.hb b{font-size:10px}.rs{grid-template-columns:minmax(0,1fr)}.rs .sec{border-right:0;border-bottom:1px solid var(--bd)}.ds{grid-template-columns:repeat(2,minmax(0,1fr))}.rs .ln{grid-template-columns:minmax(0,1fr) 18px 100px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+@media print{body{background:white;color:#111;padding:0;max-width:none}*{box-shadow:none!important;animation:none!important}.masthead,.tabs,#drop,.tools,.footer{display:none}.card,.kpi,.tc,.rs,.ds div{background:white;color:#111;break-inside:avoid;border-color:#bbb}:root{--tx:#111;--mut:#555;--bd:#ccc;--card:white;--hd:#eee}.kpi strong{color:#111}}
+
+/* PSE Energia · Identidade e gráficos */
+:root{--bg:#111410;--card:#1b1f19;--tx:#f2f3e9;--mut:#a9afa0;--bd:#363d30;--ac:#c4c65e;--ok:#b9c775;--bad:#ce9682;--hd:#282e24;color-scheme:dark}
+@media(prefers-color-scheme:dark){:root{--bg:#111410;--card:#1b1f19;--tx:#f2f3e9;--mut:#a9afa0;--bd:#363d30;--ac:#c4c65e;--ok:#b9c775;--bad:#ce9682;--hd:#282e24}}
+body{background:radial-gradient(ellipse at 0% 0%,#a4a3290e,transparent 48%),radial-gradient(ellipse at 100% 20%,#8ca48808,transparent 36%),var(--bg)}body:before{background-image:linear-gradient(#c4c65e03 1px,transparent 1px),linear-gradient(90deg,#c4c65e03 1px,transparent 1px)}
+.masthead{margin-bottom:34px;padding-bottom:26px}.brand{gap:24px}.logo-plate{display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#eeeee4;border-radius:12px;border:1px solid #ffffff35;padding:7px 14px;box-shadow:0 4px 20px #0002}.pse-logo{width:158px;height:86px;display:block}.brand-copy{border-left:1px solid var(--bd);padding-left:24px;font-size:13px;letter-spacing:1px}.brand-copy small{margin-top:4px;font-size:9px;letter-spacing:1.7px}.local-badge{background:#bfc75b08;border-color:#bfc75b24;color:#c1c8b3}.local-badge i{background:#b9c775;box-shadow:0 0 10px #b9c77550}.eyebrow{color:#c4c65e}
+#drop{border-color:#586047;background:linear-gradient(110deg,#a4a3290a,#8ca48806)}#drop:hover,#drop.over{border-color:#c4c65e;background:#252b1e;box-shadow:0 0 32px #c4c65e08}#drop b{color:var(--tx)}.upload-icon{border-color:#c4c65e40;background:#c4c65e0a}.tabs{background:#171c15}.tabs button:hover{background:#2b3324}.tabs button.on{background:linear-gradient(110deg,#393f25,#2a3021);border-color:#c4c65e4d;color:#e1e49d;box-shadow:0 2px 12px #0002}
+.card{background:linear-gradient(135deg,#1c221b,#181d17);box-shadow:0 5px 30px #00000010;border-color:#353d30}h2:before{background:linear-gradient(#d1d475,#8b9b66)}h2{font-size:14px;letter-spacing:0;line-height:1.5}.sub{color:var(--mut)}
+.kpi{--accent:#c4c65e;background:linear-gradient(125deg,#2a3020,#1b2118);border-color:#434b35}.kpi:nth-child(3n+2){--accent:#a2b48e;background:linear-gradient(125deg,#283126,#1b211a)}.kpi:nth-child(3n){--accent:#d4c18b;background:linear-gradient(125deg,#302f21,#211f18)}.kpi span{color:#bac2ad}.kpi strong{color:#f1f3e4}.kpi:after{opacity:.08}.kpi:hover{box-shadow:0 10px 30px #0003}
+#c-bar,#e-bar,#msgC,#msgE,#msgR{background:#1b2118}input,select,button{background:#151b12;border-color:#414b35}input::placeholder{color:#a9b09e}input:hover,select:hover,button:hover{border-color:#8a986e}button:hover{background:#303a25}button.p{background:#767c32}.tag.p{color:#c4d69a}.tag.i{color:#e0a28b}.bar{background:linear-gradient(90deg,#7e8c4f,#c4c65e)}th{background:#2a3323;color:#c8cfbd}tbody tr:hover{background:#c4c65e06}tfoot td{background:#262f20}.wrap{border-color:#38422e}
+.tc{background:linear-gradient(135deg,#2a3224,#1d241a);border-color:#414c36}.tc:hover{border-color:#c4c65e66}.tc .pb i{background:linear-gradient(90deg,#84966c,#ced379)}.cty.mag{background:#384629;color:#d3e3ae}.cty.nit{background:#423d2a;color:#e6d5a4}.cty.mix{background:#2c3326;color:#bcc5ad}.rk.r1{background:#c3bf67;color:#1b2013}.rk.r2{background:#a8b69b;color:#1c2318}.rk.r3{background:#b7a77d;color:#282316}
+.rs .hd{background:linear-gradient(110deg,#394127,#293523)}.rs .sec:last-child{background:#242d1e}.rs .st{color:#c4c65e}.footer{color:#a6af98}
+.rank-chart{display:grid;gap:22px;padding:0 0 8px}.rank-row{min-width:0}.rank-heading{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-bottom:10px;font-size:12px}.rank-label{display:flex;align-items:baseline;gap:12px;color:#d4dbc9;min-width:0;overflow-wrap:anywhere}.rank-label small{color:#929d84;font-size:10px;font-variant-numeric:tabular-nums;flex:none}.rank-heading b{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600;font-size:12px;color:#eef1e3}.rank-track{height:7px;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(25% - 1px),#b9c77513 calc(25% - 1px),#b9c77513 25%),#2b3325;border-radius:9px;overflow:hidden;margin-left:26px}.rank-track i{display:block;height:100%;border-radius:9px;background:linear-gradient(90deg,color-mix(in srgb,var(--bar),#3d482b 40%),var(--bar));animation:bar-in .8s ease both;transform-origin:left;box-shadow:0 0 14px #bec15b0c}
+.productivity-chart{display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;padding:0 0 4px}.productivity-ring{width:164px;height:164px;flex:none}.ring-outline{fill:none;stroke:#c4c65e1a;stroke-width:1;stroke-dasharray:2 6}.ring-label{fill:var(--mut);font-size:9px;letter-spacing:1.2px}.ring-number{fill:var(--tx);font-size:21px;font-weight:700;letter-spacing:-.5px;font-variant-numeric:tabular-nums}.productivity-stats{display:grid;gap:22px;flex:1;min-width:140px}.productivity-stat>span{display:flex;align-items:center;gap:7px;font-size:9px;letter-spacing:.5px;color:#b7c1a9}.productivity-stat i,.composition-stats i{display:inline-block;width:7px;height:7px;border-radius:50%;flex:none}.productivity-stat strong{display:flex;justify-content:space-between;gap:14px;align-items:center;font-size:22px;letter-spacing:-.3px;font-variant-numeric:tabular-nums}.productivity-stat strong small{color:#aab69a;font-size:11px;letter-spacing:0;font-weight:500}
+.ds{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:24px}.ds div{padding:16px;background:linear-gradient(120deg,#2d3525,#242c1e);border-color:#414b34;min-width:0}.ds span{font-size:11px;color:#b8c1aa}.ds strong{font-size:17px;line-height:1.5;margin-top:7px;overflow-wrap:anywhere;letter-spacing:-.3px}.chart-meta{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;font-size:11px;color:var(--mut);padding:0 0 14px}.chart-meta>span{display:flex;align-items:center;gap:8px}.chart-meta small{font-size:10px;color:#9da88f}.legend-dot{width:7px;height:7px;border-radius:2px;background:#bec15b;display:inline-block}.legend-dash{width:16px;border-top:1px dashed #ced0ac;display:inline-block;margin-left:10px}.daily-scroll,.trend-scroll{overflow-x:auto;border:1px solid #39422f;border-radius:12px;background:radial-gradient(ellipse at 50% 100%,#a4a32906,transparent 70%),#141b12;padding:12px 0 0;scrollbar-color:#6b7549 #1d2519;scrollbar-width:thin}.daily-svg{display:block;width:100%;height:auto;overflow:visible}.chart-grid{stroke:#bcc79715;stroke-width:1;stroke-dasharray:3 5}.axis-label{fill:#a5b096;font-size:10px;font-variant-numeric:tabular-nums}.day-value{fill:#d5ddc7;font-size:10px;font-weight:600;font-variant-numeric:tabular-nums}.day-date{fill:#e2e9d5;font-size:11px;font-weight:600}.average-line{stroke:#d4d6ae;stroke-width:1;stroke-dasharray:5 5;pointer-events:none;opacity:.65}.day-hover{fill:transparent;transition:fill .2s}.day-point:hover .day-hover,.day-point:focus .day-hover{fill:#c4c65e0b}.day-point:focus{outline:none}.day-point:focus .day-bar{stroke:#f1f2cc;stroke-width:1.5}.day-point:hover .day-bar{filter:brightness(1.15)}.day-bar{animation:chart-reveal .9s ease both}.daily-scroll:focus-visible{outline-offset:3px}.daily-scroll::-webkit-scrollbar,.trend-scroll::-webkit-scrollbar{height:7px}.daily-scroll::-webkit-scrollbar-thumb,.trend-scroll::-webkit-scrollbar-thumb{background:#6b7549;border-radius:9px}
+.summary-charts{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.summary-charts>.card{margin:0}.chart-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:24px}.chart-title h2{margin:0}.chart-caption{font-size:9px;color:#aab399;letter-spacing:1.2px}.compare-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.comparison{padding:22px;border:1px solid #465035;border-radius:14px;background:linear-gradient(125deg,#2c3425,#20271b);min-width:0}.comparison-heading{display:flex;gap:10px;align-items:center;border-bottom:1px solid #c4c65e1c;padding-bottom:15px;margin-bottom:20px}.comparison-index{display:grid;place-items:center;width:28px;height:28px;border-radius:8px;color:#c4c65e;font-size:11px;border:1px solid #c4c65e33;background:#c4c65e08}.comparison h3{font-size:15px;margin:0;font-weight:600}.comparison-metric{margin-top:22px}.comparison-label{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:7px;color:#b7c1a8;font-size:11px;flex-wrap:wrap}.comparison-label small{font-size:10px;color:#b6bf9d}.comparison-metric strong{display:block;font-size:clamp(17px,1.5vw,23px);font-weight:600;letter-spacing:-.5px;line-height:1.4;overflow-wrap:anywhere;font-variant-numeric:tabular-nums;margin-bottom:10px}.metric-track,.goal-track{height:7px;border-radius:8px;background:#11180b88;position:relative}.metric-track{overflow:hidden}.metric-track i,.goal-track i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,color-mix(in srgb,var(--bar),#354026 40%),var(--bar));animation:bar-in .8s ease both;transform-origin:left}.comparison-metric.proj .metric-track i{background:repeating-linear-gradient(120deg,#dfcaa2 0px,#dfcaa2 7px,#b7a77e 7px,#b7a77e 10px)}.missing{background:repeating-linear-gradient(120deg,#b0b8a00c 0,#b0b8a00c 4px,transparent 4px,transparent 8px),#171e12;opacity:.7}.unavailable{font-size:12px!important;font-weight:500!important;letter-spacing:0!important;color:#a8b09b!important}.lg{margin-top:20px;color:#b0bba1}.lg>span{display:inline-flex;align-items:center}.lg i{border-radius:2px;width:7px;height:7px}.legend-note{margin-left:auto;font-size:10px;color:#9da88e}.goal-row{margin:27px 0}.goal-heading{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:12px}.goal-heading b{font-size:12px;font-weight:550}.goal-heading strong{font-size:23px;font-weight:600;letter-spacing:-.7px}.goal-track{height:9px;background:#313a28}.goal-target{position:absolute;top:-5px;bottom:-5px;border-left:1px dashed #e5e9ce8c}.goal-legend{gap:12px;font-size:10px}.chart-note{font-size:10px;color:#9da88e;margin:13px 0 0}.composition{display:grid;justify-items:center;gap:22px}.composition-ring{width:210px;height:210px;max-width:100%}.composition-stats{display:grid;gap:16px;width:100%}.composition-stats>div{border-top:1px solid var(--bd);padding-top:14px}.composition-stats span{display:flex;align-items:center;gap:8px;color:#c5cfb8;font-size:11px}.composition-stats span b{margin-left:auto;font-size:12px;font-weight:600;color:#e0e5d3}.composition-stats strong{display:block;padding-left:15px;margin-top:6px;font-size:17px;font-weight:600;letter-spacing:-.3px;font-variant-numeric:tabular-nums}.remaining-row{margin:25px 0;padding-bottom:22px;border-bottom:1px solid var(--bd)}.remaining-row:last-child{border:0;margin-bottom:0;padding-bottom:0}.remaining-row>b{font-size:12px;font-weight:550;color:#c3cdb6}.remaining-value{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:8px 0 12px}.remaining-value small{font-size:10px;color:#acb79b}.remaining-value strong{font-size:21px;letter-spacing:-.5px;font-weight:600;font-variant-numeric:tabular-nums}.remaining-caption{display:block;margin-top:9px;font-size:10px;color:#a6b192;font-variant-numeric:tabular-nums}.trend-scroll svg{display:block;width:100%;min-width:700px;height:auto}.trend-point{stroke:var(--card);stroke-width:1.5;transition:r .15s}.trend-point:hover,.trend-point:focus{r:5;stroke:#eef3db;outline:none}.chart-empty{display:grid;place-items:center;padding:48px 18px;color:var(--mut);font-size:12px;text-align:center;min-height:150px}.cumulative-line{stroke-dasharray:2000;animation:line-in 1.4s ease both}
+@keyframes chart-reveal{from{opacity:0}to{opacity:1}}@keyframes line-in{from{stroke-dashoffset:2000}to{stroke-dashoffset:0}}
+@media(min-width:1300px){#out>.cg{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:1100px){.summary-charts{grid-template-columns:minmax(0,1fr)}.goal-card,.composition-card,.remaining-card{width:100%}.goal-card{min-height:300px}.composition{grid-template-columns:220px minmax(0,1fr);gap:32px;justify-content:center;align-items:center}.comparison{padding:16px}.comparison-metric strong{font-size:18px}.comparison-label{font-size:10px}.ds{grid-template-columns:repeat(auto-fit,minmax(165px,1fr))}}
+@media(max-width:720px){.compare-grid{grid-template-columns:minmax(0,1fr)}.comparison{padding:22px}.comparison-metric strong{font-size:23px}.comparison-metric{margin-top:18px}.chart-caption{font-size:8px}.brand{gap:14px}.logo-plate{padding:4px 10px}.pse-logo{width:122px;height:67px}.brand-copy{display:none}.composition{grid-template-columns:minmax(0,1fr)}.composition-stats{max-width:400px}.rank-chart{gap:20px}.ds{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ds div{padding:12px}.ds strong{font-size:15px}.ds span{font-size:10px}.chart-title{margin-bottom:20px}.local-badge{font-size:0;padding:10px}.local-badge i{margin:0}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}.cumulative-line{stroke-dasharray:none}}
+@media print{body,.card,.kpi,.tc,.comparison,.daily-scroll,.trend-scroll,.ds div{background:white!important;color:#222!important}.rank-heading b,.kpi strong,.ds strong{color:#222!important}.axis-label,.day-value,.day-date,.ring-number{fill:#333}.summary-charts{grid-template-columns:repeat(3,minmax(0,1fr))}.daily-scroll{overflow:visible}.daily-svg{min-width:0!important}.masthead{display:flex}.logo-plate{box-shadow:none;border:none}.local-badge{display:none}}
+
+</style>
+</head>
+<body>
+<header class="masthead"><div class="brand"><div class="logo-plate"><svg class="pse-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 385 211" role="img" aria-labelledby="pse-logo-title"><title id="pse-logo-title">PSE Energia</title><g stroke="#777766" stroke-width=".6"><path fill="#252525" fill-rule="evenodd" d="M16 24H74C99 24 114 41 114 62C114 84 98 101 75 101H40V137H16ZM40 43V82H74C87 82 94 74 94 62C94 50 86 43 74 43Z"/><path fill="#a4a329" d="M120 92V79C120 45 141 24 175 24H365V47H179C159 47 146 53 144 68H245V84C245 116 224 137 190 137H51V114H188C205 114 215 107 217 92Z"/><path fill="#252525" d="M252 68H365V92H277C280 106 291 114 308 114H365V137H307C273 137 252 115 252 84Z"/></g><text x="41" y="177" fill="#a4a329" font-family="Arial,Helvetica,sans-serif" font-size="37" font-weight="800" letter-spacing="11">ENERGIA</text><path d="M16 187H365" stroke="#a4a329" stroke-width="2"/></svg></div><div class="brand-copy">CENTRAL DE PERFORMANCE<small>INTELIGÊNCIA COMERCIAL E OPERACIONAL</small></div></div><div class="local-badge"><i></i>Processamento local · Dados no navegador</div></header><div class="eyebrow">PAINEL DE PERFORMANCE</div>
+<h1>Analisador de planilha · PSE Energia</h1>
+<div class="sub">Arraste a planilha (.xlsx) abaixo. Tudo é processado no seu navegador; nenhum arquivo é enviado.</div>
+<div id="drop" tabindex="0" role="button" aria-label="Selecionar planilha Excel" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('file').click()}"><span class="upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 16V3m-5 5 5-5 5 5M4 15v5h16v-5"/></svg></span><b>Arraste a planilha aqui</b> ou clique para selecionar<small>Uma única vez: lê as abas “COMERCIAL EORDER” e “EMERGÊNCIA” e mostra os resultados de cada uma nas abas abaixo</small>
+<input type="file" id="file" accept=".xlsx,.xlsm,.xls" hidden></div>
+<div id="msg"></div>
+<div class="tabs"><button class="on" data-t="c">COMERCIAL EORDER</button><button data-t="e">EMERGÊNCIA</button><button data-t="r">RESUMO</button></div>
+<div id="pane-c">
+<div id="msgC" style="margin:12px 0;color:var(--mut)">Aguardando a planilha…</div>
+<div class="tools" id="c-bar" style="display:none;align-items:center;margin-bottom:14px">Período: <label>De <input type="date" id="c-de"></label><label>Até <input type="date" id="c-ate"></label><label>Origem <select id="c-orig"><option value="">Ambos</option><option value="COMERCIAL">Comercial</option><option value="PERDAS">Perdas</option></select></label><button id="c-clr">Limpar filtro</button><span id="c-cnt" style="color:var(--mut)"></span></div>
+
+<div id="out">
+  <div class="kpis" id="kpis"></div>
+  <div class="cg">
+    <div class="card"><h2>Valor total por setor</h2><div id="c-setor"></div></div>
+    <div class="card"><h2>Valor total por cidade</h2><div id="c-cid"></div></div>
+    <div class="card"><h2>Produtivos × Improdutivos (quantidade)</h2><div id="c-prod"></div></div>
+    <div class="card" style="grid-column:1/-1"><h2>Valor total por dia</h2><div id="c-dia"></div></div>
+  </div>
+  <div class="grid" style="margin-top:14px">
+    <div class="card"><h2>Por setor</h2><div class="wrap" id="t-setor"></div></div>
+    <div class="card"><h2>Produtivo × Improdutivo</h2><div class="wrap" id="t-prod"></div></div>
+  </div>
+  <div class="card"><h2>Por dia</h2><div class="wrap" id="t-dia"></div></div>
+  <div class="card tp" style="margin-top:14px"><div class="th"><div><h2>Equipes — valor e quantidade</h2><div class="sub" style="margin:0"><span id="c-tsub">Equipe = coluna CARRO</span> · <span id="c-tn"></span></div></div>
+    <div class="tools" style="margin:0"><input id="c-tq" placeholder="Filtrar equipe…" style="min-width:180px"><select id="c-tc"><option value="">Todas as cidades</option><option>MAGÉ</option><option>NITERÓI</option></select><select id="c-ts"><option value="av">Maior valor</option><option value="n">Maior quantidade</option><option value="k">Nome (A–Z)</option></select></div></div>
+    <div class="tg" id="c-tg"></div></div>
+</div>
+</div>
+<div id="pane-e" style="display:none">
+<div id="msgE" style="margin:12px 0;color:var(--mut)">Aguardando a planilha…</div>
+<div class="tools" id="e-bar" style="display:none;align-items:center;margin-bottom:14px">Período: <label>De <input type="date" id="e-de"></label><label>Até <input type="date" id="e-ate"></label><label>Polo <select id="e-polo"><option value="">Todos</option></select></label><button id="e-clr">Limpar filtro</button><span id="e-cnt" style="color:var(--mut)"></span></div>
+<div id="outE" style="display:none">
+  <div class="kpis" id="e-kpis"></div>
+  <div class="cg">
+    <div class="card"><h2>Valor total por setor (SETOR MACRO)</h2><div id="e-c-setor"></div></div>
+    <div class="card"><h2>Valor total por turno</h2><div id="e-c-turno"></div></div>
+    <div class="card"><h2>Produtivos × Improdutivos (quantidade)</h2><div id="e-c-prod"></div></div>
+    <div class="card"><h2>Valor total por rede (NT)</h2><div id="e-c-nt"></div></div>
+    <div class="card"><h2>Top 10 prefixos por valor (CARRO)</h2><div id="e-c-pref"></div></div>
+    <div class="card"><h2>Valor total por polo</h2><div id="e-c-polo"></div></div>
+    <div class="card" style="grid-column:1/-1"><h2>Valor total por dia</h2><div id="e-c-dia"></div></div>
+  </div>
+  <div class="grid" style="margin-top:14px">
+    <div class="card"><h2>Por polo</h2><div class="wrap" id="e-t-polo"></div></div>
+    <div class="card"><h2>Por setor</h2><div class="wrap" id="e-t-setor"></div></div>
+    <div class="card"><h2>Por dia</h2><div class="wrap" id="e-t-dia"></div></div>
+    <div class="card"><h2>Baremos (top 15 por valor)</h2><div class="wrap" id="e-t-bar"></div></div>
+    <div class="card"><h2>Prefixos (CARRO · top 15 por valor)</h2><div class="wrap" id="e-t-pref"></div></div>
+  </div>
+  <div class="card tp" style="margin-top:14px"><div class="th"><div><h2>Equipes — valor e quantidade</h2><div class="sub" style="margin:0">Equipe = coluna CARRO · <span id="e-tn"></span></div></div>
+    <div class="tools" style="margin:0"><input id="e-tq" placeholder="Filtrar equipe…" style="min-width:180px"><select id="e-ts"><option value="av">Maior valor</option><option value="n">Maior quantidade</option><option value="k">Nome (A–Z)</option></select></div></div>
+    <div class="tg" id="e-tg"></div></div>
+</div>
+</div>
+<div id="pane-r" style="display:none">
+<div id="msgR" style="margin:12px 0;color:var(--mut)">Aguardando a planilha…</div>
+<div id="outR" style="display:none"></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const brl=v=>(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const int=v=>(v||0).toLocaleString('pt-BR');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const SHEET='COMERCIAL EORDER', BAR=['BAREMOS 1','BAREMOS 2','BAREMOS 3','BAREMOS 4','BAREMOS 5','BAREMOS 6','BAREMOS 7','BAREMOS 8'];
+let rows=[];
+
+const drop=$('drop'),file=$('file');
+drop.onclick=()=>file.click();
+['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',ev=>{if(ev.dataTransfer.files[0])load(ev.dataTransfer.files[0])});
+file.onchange=()=>{if(file.files[0])load(file.files[0])};
+window.addEventListener('dragover',e=>e.preventDefault());window.addEventListener('drop',e=>e.preventDefault());
+
+function msg(t,err){const m=$('msg');m.textContent=t;m.className=err?'err':''}
+function dt(v){if(typeof v==='number'){const d=new Date(Math.round((v-25569)*864e5));return d.toISOString().slice(0,10)}
+  return v?String(v).slice(0,10):''}
+let rowsAll=[],eRowsAll=[];
+function setRange(p,arr){const d=arr.map(r=>r.DATA).filter(Boolean).sort(),mn=d[0]||'',mx=d[d.length-1]||'';
+  [$(p+'-de'),$(p+'-ate')].forEach(i=>{i.min=mn;i.max=mx});$(p+'-de').value=mn;$(p+'-ate').value=mx;$(p+'-bar').style.display='flex'}
+function inR(p,r){const f=$(p+'-de').value,t=$(p+'-ate').value;return (!f||r.DATA>=f)&&(!t||r.DATA<=t)}
+function applyC(){const of=$('c-orig').value;rows=rowsAll.filter(r=>inR('c',r)&&(!of||r.ORIGEM===of));$('c-cnt').textContent=int(rows.length)+' de '+int(rowsAll.length)+' registros no período';
+  if(!rows.length){$('out').style.display='none';return}render()}
+function applyE(){const pf=$('e-polo').value;eRows=eRowsAll.filter(r=>inR('e',r)&&(!pf||r.POLO===pf));$('e-cnt').textContent=int(eRows.length)+' de '+int(eRowsAll.length)+' linhas no período';
+  if(!eRows.length){$('outE').style.display='none';return}renderE()}
+['c','e'].forEach(p=>{const ap=p==='c'?applyC:applyE,all=()=>p==='c'?rowsAll:eRowsAll;
+  $(p+'-de').onchange=ap;$(p+'-ate').onchange=ap;$(p+'-clr').onclick=()=>{setRange(p,all());if(p==='e')$('e-polo').value='';if(p==='c')$('c-orig').value='';ap()}});
+$('c-orig').onchange=()=>applyC();
+$('e-polo').onchange=()=>applyE();
+function msgC(t,err){const m=$('msgC');m.textContent=t;m.style.color=err?'var(--bad)':'var(--mut)';m.style.display=t?'':'none'}
+function load(f){
+  if(typeof XLSX==='undefined'){msg('Biblioteca SheetJS não carregou (verifique a internet).',1);return}
+  msg('Lendo “'+f.name+'”… arquivos grandes podem levar alguns segundos.');
+  $('out').style.display='none';$('outE').style.display='none';$('outR').style.display='none';$('c-bar').style.display='none';$('e-bar').style.display='none';
+  const r=new FileReader();
+  r.onload=e=>setTimeout(()=>{try{
+    const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',sheets:[SHEET,'EMERGÊNCIA','RELATORIO','FATURAMENTO EXTENÇÃO','FATURAMENTO EXTENSÃO','PERDAS'],cellFormula:false,cellStyles:false});
+    procC(wb,f);procE(wb,f);procR(wb,f);
+    msg('Arquivo carregado: '+f.name+' — veja os resultados em cada aba abaixo.');
+  }catch(err){msg('Erro ao ler a planilha: '+err.message,1)}},30);
+  r.readAsArrayBuffer(f);
+}
+function procC(wb,f){
+  try{
+    const ws=wb.Sheets[SHEET];
+    if(!ws){msgC('A aba “'+SHEET+'” não foi encontrada. Abas disponíveis: '+wb.SheetNames.join(', '),1);return}
+    const HK=(ws['AH6']&&String(ws['AH6'].v).trim())||'NITEROI';
+    const raw=XLSX.utils.sheet_to_json(ws,{range:5,defval:'',raw:true});
+    const hasCarro=raw.length>0&&Object.keys(raw[0]).some(k=>k.trim()==='CARRO');
+    $('c-tsub').textContent=hasCarro?'Equipe = coluna CARRO':'Equipe = coluna PREFIXO (esta aba não tem a coluna CARRO)';
+    rows=raw.map(o=>{const x={};for(const k in o)x[k.trim()]=o[k];return x})
+      .filter(x=>x['Código TdC']!=='')
+      .map(x=>{x.DATA=dt(x.DATA);x.TOTAL=+x.TOTAL||0;x.AV=+x.AV||0;x.PRODUTIVO=String(x.PRODUTIVO).trim().toUpperCase();
+        x.ORIGEM='COMERCIAL';x.SETOR=String(x.SETOR).trim()||'-';const nv=x[HK];const sv=String(nv).trim().toUpperCase();x.Cidade=(nv===true||sv==='TRUE')?'NITERÓI':(nv===false||sv==='FALSE')?'MAGÉ':'SEM INFORMAÇÃO';
+        x.ELETRECISTA=String(x.ELETRECISTA).trim()||'-';x.PREFIXO=String(x.PREFIXO).trim()||'-';x.CARRO=hasCarro?(String(x.CARRO).trim()||'-'):x.PREFIXO;
+        x._s=Object.values(x).join(' ').toLowerCase();return x});
+    const lidos=rows.length;
+    if(!rows.length){msgC('Nenhum registro encontrado na aba ('+int(lidos)+' linhas lidas).',1);return}
+    msgC('');
+    const pe=lerPerdas(wb);
+    if(!pe.nome)msgC('Aba PERDAS não encontrada.',1);
+    rowsAll=rows.concat(pe.rows);setRange('c',rowsAll);applyC();
+  }catch(err){msgC('Erro ao ler a aba COMERCIAL EORDER: '+err.message,1)}
+}
+function lerPerdas(wb){
+  const ws=wb.Sheets['PERDAS'];
+  if(!ws)return {rows:[],nome:''};
+  const raw=XLSX.utils.sheet_to_json(ws,{range:5,defval:'',raw:true});
+  const rs=raw.map(o=>{const x={};for(const k in o)x[k.trim()]=o[k];return x})
+    .filter(x=>x['Código TdC']!=='')
+    .map(x=>{x.DATA=dt(x.DATA);x.TOTAL=+x.TOTAL||0;x.AV=+x.AV||0;x.PRODUTIVO=String(x.PRODUTIVO).trim().toUpperCase();
+      x.ORIGEM='PERDAS';x.SETOR='PERDAS';
+      x.ELETRECISTA=String(x.ELETRECISTA).trim()||'-';x.PREFIXO=String(x.PREFIXO).trim()||'-';x.CARRO=x.PREFIXO;
+      x.Cidade=/^NITER[ÓO]I/i.test(x.PREFIXO)?'NITERÓI':'MAGÉ';
+      x._s=Object.values(x).join(' ').toLowerCase();return x});
+  return {rows:rs,nome:'PERDAS'};
+}
+function group(key,fn,src){const m=new Map();
+  (src||rows).forEach(r=>{const k=fn?fn(r):r[key];const g=m.get(k)||{k,n:0,t:0,av:0,p:0};g.n++;g.t+=r.TOTAL;g.av+=r.AV;if(r.PRODUTIVO==='PRODUTIVO')g.p++;m.set(k,g)});
+  return [...m.values()]}
+function tbl(el,data,lab,{bars=true,foot=true,prodCol=false}={}){
+  const A=data.reduce((a,g)=>a+g.av,0),N=data.reduce((a,g)=>a+g.n,0),mx=Math.max(...data.map(g=>g.av),1);
+  $(el).innerHTML='<table><thead><tr><th>'+lab+'</th><th class="n">Qtd</th><th class="n">Valor total</th>'+(prodCol?'<th class="n">% prod.</th>':'')+(bars?'<th style="min-width:80px"></th>':'')+'</tr></thead><tbody>'+
+   data.map(g=>'<tr><td>'+esc(g.k)+'</td><td class="n">'+int(g.n)+'</td><td class="n">'+brl(g.av)+'</td>'+(prodCol?'<td class="n">'+(g.n?Math.round(g.p/g.n*100):0)+'%</td>':'')+(bars?'<td><div class="bar" style="width:'+(g.av/mx*100)+'%"></div></td>':'')+'</tr>').join('')+
+   '</tbody>'+(foot?'<tfoot><tr><td>Total</td><td class="n">'+int(N)+'</td><td class="n">'+brl(A)+'</td>'+(prodCol?'<td></td>':'')+(bars?'<td></td>':'')+'</tr></tfoot>':'')+'</table>'}
+const PAL=['#bec15b','#8ca488','#d4c18b','#949d83','#d7d9b4','#788a72','#bba975','#a3aa93'];
+function diaChart(el,data){
+  if(!data.length){$(el).innerHTML='<div class="chart-empty">Sem datas disponíveis para exibir o gráfico.</div>';return}
+  const mx=Math.max(...data.map(g=>g.av),1),tot=data.reduce((a,g)=>a+g.av,0),avg=tot/(data.length||1);
+  const best=data.reduce((a,g)=>g.av>a.av?g:a,data[0]),worst=data.reduce((a,g)=>g.av<a.av?g:a,data[0]);
+  const fd=k=>k.split('-').reverse().join('/'),wd=k=>new Date(k+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'short'}).replace('.','');
+  const kf=v=>v>=1000?'R$ '+(v/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' mil':brl(v);
+  const W=Math.max(760,data.length*76+84),H=374,L=82,R=20,T=30,B=70,pw=W-L-R,ph=H-T-B,scale=mx*1.15,Y=v=>T+ph-ph*v/scale,step=pw/data.length,bw=Math.min(38,step*.56),id='day-'+el;
+  let svg='<svg class="daily-svg" viewBox="0 0 '+W+' '+H+'" style="min-width:'+W+'px" role="img" aria-label="Valor total por dia, em reais"><defs><linearGradient id="'+id+'" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#c9cc67"/><stop offset="1" stop-color="#7e8645"/></linearGradient><linearGradient id="'+id+'-best" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#e4e6a3"/><stop offset="1" stop-color="#b5bd5c"/></linearGradient></defs>';
+  for(let i=0;i<=4;i++){const v=scale*i/4,y=Y(v);svg+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'" class="chart-grid"/><text x="'+(L-12)+'" y="'+(y+4)+'" text-anchor="end" class="axis-label">'+kf(v)+'</text>'}
+  data.forEach((g,i)=>{const x=L+step*(i+.5),y=Y(Math.max(0,g.av)),height=Y(0)-y,isBest=g===best,tip=fd(g.k)+' ('+wd(g.k)+') · Valor total: '+brl(g.av)+' · Registros: '+int(g.n)+' · Produtivos: '+int(g.p)+' ('+(g.n?Math.round(g.p/g.n*100):0)+'%) · Ticket médio: '+brl(g.n?g.av/g.n:0);
+    svg+='<g class="day-point" tabindex="0" role="img" aria-label="'+esc(tip)+'"><title>'+esc(tip)+'</title><rect class="day-hover" x="'+(L+step*i)+'" y="'+T+'" width="'+step+'" height="'+(ph+B-4)+'" rx="8"/><rect class="day-bar" x="'+(x-bw/2)+'" y="'+y+'" width="'+bw+'" height="'+height+'" rx="5" fill="url(#'+id+(isBest?'-best':'')+')"/><text x="'+x+'" y="'+(y-10)+'" text-anchor="middle" class="day-value">'+kf(g.av)+'</text><text x="'+x+'" y="'+(H-B+22)+'" text-anchor="middle" class="day-date">'+fd(g.k).slice(0,5)+'</text><text x="'+x+'" y="'+(H-B+39)+'" text-anchor="middle" class="axis-label">'+wd(g.k)+' · '+int(g.n)+' reg.</text><text x="'+x+'" y="'+(H-B+55)+'" text-anchor="middle" class="axis-label">'+(g.n?Math.round(g.p/g.n*100):0)+'% prod.</text></g>'});
+  svg+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(avg)+'" y2="'+Y(avg)+'" class="average-line"/></svg>';
+  $(el).innerHTML='<div class="ds">'+[['Total do período',brl(tot)],['Média por dia',brl(avg)],['Melhor dia',fd(best.k).slice(0,5)+' — '+brl(best.av)],['Menor dia',fd(worst.k).slice(0,5)+' — '+brl(worst.av)],['Dias com produção',data.filter(g=>g.av>0).length+' de '+data.length]].map(([a,b])=>'<div><span>'+a+'</span><strong>'+b+'</strong></div>').join('')+'</div><div class="chart-meta"><span><i class="legend-dot"></i> Valor diário <i class="legend-dash"></i> Média: '+brl(avg)+'</span><small>Explore as colunas · deslize para ver o período completo</small></div><div class="daily-scroll" tabindex="0" aria-label="Gráfico diário com rolagem horizontal">'+svg+'</div>';
+}
+function hbar(el,data,val,fmt,colors){
+  const mx=Math.max(...data.map(val),1);
+  if(/-prod$/.test(el)){
+    const total=data.reduce((a,g)=>a+val(g),0),r=66,C=2*Math.PI*r;let offset=0;
+    const arcs=data.map((g,i)=>{const size=total?val(g)/total*C:0,col=g.k==='PRODUTIVO'?'#b9c775':g.k==='IMPRODUTIVO'?'#c68f7c':PAL[i%8],arc='<circle cx="90" cy="90" r="'+r+'" fill="none" stroke="'+col+'" stroke-width="15" stroke-dasharray="'+size+' '+(C-size)+'" stroke-dashoffset="'+(-offset)+'" transform="rotate(-90 90 90)"/>';offset+=size;return arc}).join('');
+    $(el).innerHTML='<div class="productivity-chart"><svg viewBox="0 0 180 180" class="productivity-ring" role="img" aria-label="'+esc(data.map(g=>g.k+': '+fmt(val(g))).join(', '))+'"><circle cx="90" cy="90" r="79" class="ring-outline"/><circle cx="90" cy="90" r="'+r+'" fill="none" stroke="var(--hd)" stroke-width="15"/>'+arcs+'<text x="90" y="85" text-anchor="middle" class="ring-label">REGISTROS</text><text x="90" y="109" text-anchor="middle" class="ring-number">'+int(total)+'</text></svg><div class="productivity-stats">'+data.map((g,i)=>'<div class="productivity-stat"><span><i style="background:'+(g.k==='PRODUTIVO'?'#b9c775':g.k==='IMPRODUTIVO'?'#c68f7c':PAL[i%8])+'"></i>'+esc(g.k)+'</span><strong>'+fmt(val(g))+'<small>'+(total?Math.round(val(g)/total*100):0)+'%</small></strong></div>').join('')+'</div></div>';return;
+  }
+  $(el).innerHTML='<div class="rank-chart">'+data.map((g,i)=>'<div class="rank-row"><div class="rank-heading"><span class="rank-label"><small>'+String(i+1).padStart(2,'0')+'</small>'+esc(g.k)+'</span><b>'+fmt(val(g))+'</b></div><div class="rank-track"><i style="width:'+Math.max(0,val(g)/mx*100)+'%;--bar:'+PAL[i%8]+'"></i></div></div>').join('')+'</div>';
+}
+function vbar(el,data,val,fmt){
+  const mx=Math.max(...data.map(val),1);
+  $(el).innerHTML='<div class="vb">'+data.map((g,i)=>'<div class="c" title="'+esc(g.k)+': '+fmt(val(g))+'"><em>'+fmt(val(g))+'</em><i style="height:'+(val(g)/mx*100*0.8)+'%;background:'+PAL[i%8]+'"></i><span>'+esc(g.k.slice(0,5))+'</span></div>').join('')+'</div>';
+}
+function render(){
+  const T=rows.reduce((a,r)=>a+r.TOTAL,0),A=rows.reduce((a,r)=>a+r.AV,0);
+  const prod=rows.filter(r=>r.PRODUTIVO==='PRODUTIVO').length;
+  const dts=rows.map(r=>r.DATA).filter(Boolean).sort();
+  const fmtD=d=>d.split('-').reverse().join('/');
+  const k=[['Registros',int(rows.length)],['Valor total (AV)',brl(A)],['Valor PERDAS (AV)',brl(rows.filter(r=>r.ORIGEM==='PERDAS').reduce((a,r)=>a+r.AV,0))],
+   ['Produtivos',int(prod)+' ('+Math.round(prod/rows.length*100)+'%)'],['Improdutivos',int(rows.length-prod)],
+   ['Período',dts.length?fmtD(dts[0])+' a '+fmtD(dts[dts.length-1]):'-']];
+  $('kpis').innerHTML=k.map(([a,b])=>'<div class="kpi"><span>'+a+'</span><strong>'+b+'</strong></div>').join('');
+  const byT=(a,b)=>b.av-a.av;
+  tbl('t-setor',group('SETOR').sort(byT),'Setor',{prodCol:true});
+  tbl('t-prod',group('PRODUTIVO').sort(byT),'Situação',{bars:false});
+  const fm=v=>brl(v);const dia=group('DATA').sort((a,b)=>a.k<b.k?-1:1).map(g=>({...g,k:fmtD(g.k||'-')}));
+  tbl('t-dia',dia,'Data');
+  hbar('c-setor',group('SETOR').sort(byT),g=>g.av,fm);
+  hbar('c-cid',group('Cidade').sort(byT),g=>g.av,fm);
+  hbar('c-prod',group('PRODUTIVO').sort((a,b)=>b.n-a.n),g=>g.n,int,{'PRODUTIVO':'#b9c775','IMPRODUTIVO':'#ce9682'});
+  diaChart('c-dia',group('DATA').filter(g=>g.k).sort((a,b)=>a.k<b.k?-1:1));
+  $('out').style.display='block';drawTeams('c');
+}
+
+/* ---------- Abas ---------- */
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
+  ['c','e','r'].forEach(t=>$('pane-'+t).style.display=b.dataset.t===t?'':'none')});
+
+/* ---------- Aba EMERGÊNCIA ---------- */
+let eRows=[];
+function msgE(t,err){const m=$('msgE');m.textContent=t;m.style.color=err?'var(--bad)':'var(--mut)';m.style.display=t?'':'none'}
+function procE(wb,f){
+  try{
+    const NM='EMERGÊNCIA';
+    const ws=wb.Sheets[NM];
+    if(!ws){msgE('A aba “'+NM+'” não foi encontrada. Abas disponíveis: '+wb.SheetNames.join(', '),1);return}
+    const raw=XLSX.utils.sheet_to_json(ws,{range:1,defval:'',raw:true});
+    eRows=raw.map(o=>{const x={};for(const k in o)x[k.trim()]=o[k];return x}).filter(x=>x['INCIDÊNCIA']!=='')
+      .filter(x=>{const v=x['EORDER'];const sv=String(v).trim().toUpperCase();return !(v===true||sv==='TRUE'||sv==='VERDADEIRO')})
+      .map(x=>{x.DATA=dt(x['DATA IAE']);x.AV=+x.TOTAL||0;x.PRODUTIVO=String(x.PRODUTIVO).trim().toUpperCase();
+        ['SETOR MACRO','SETOR','TURNO','NT','CARRO','BAREMO'].forEach(k=>x[k]=String(x[k]).trim()||'-');return x});
+    if(!eRows.length){msgE('Aba encontrada, mas sem registros a partir da linha 3.',1);return}
+    eRows.forEach(x=>{x.POLO='MAGÉ';x.ORIGEM='EMERGÊNCIA'});
+    const ext=lerExt(wb);
+    const nm=ext.rows.length?(' + '+int(ext.rows.length)+' de outros polos (aba '+ext.nome+')'):(ext.nome?'':' (aba FATURAMENTO EXTENÇÃO não encontrada)');
+    eRowsAll=eRows.concat(ext.rows);
+    const pl=[...new Set(eRowsAll.map(r=>r.POLO))],sel=$('e-polo');
+    sel.innerHTML='<option value="">Todos</option>'+pl.map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');
+    msgE(ext.nome?'':'Aba FATURAMENTO EXTENÇÃO não encontrada — mostrando só Magé.',ext.nome?0:1);
+    setRange('e',eRowsAll);applyE();
+  }catch(err){msgE('Erro ao ler a aba EMERGÊNCIA: '+err.message,1)}
+}
+const POLO_FIX={'SAO GONCALO':'SÃO GONÇALO','NITEROI':'NITERÓI','ITABORAI':'ITABORAÍ','MARICA':'MARICÁ','RIO BONITO':'RIO BONITO','SAO GONÇALO':'SÃO GONÇALO'};
+function lerExt(wb){
+  const nome=['FATURAMENTO EXTENÇÃO','FATURAMENTO EXTENSÃO'].find(n=>wb.Sheets[n]);
+  if(!nome)return {rows:[],nome:''};
+  const raw=XLSX.utils.sheet_to_json(wb.Sheets[nome],{range:1,defval:'',raw:true});
+  const rows=raw.map(o=>{const x={};for(const k in o)x[k.trim()]=o[k];return x}).filter(x=>x['INCIDÊNCIA']!=='')
+    .map(x=>{x.DATA=dt(x['DATA IAE']);x.AV=+x.TOTAL||0;
+      x.PRODUTIVO=(+x['VAL/P/AV']>0)?'PRODUTIVO':'IMPRODUTIVO';
+      const po=String(x.POLO).trim().toUpperCase();x.POLO=POLO_FIX[po]||po||'SEM POLO';x.ORIGEM='EXTENSÃO';
+      x['SETOR MACRO']=String(x['SETOR MACRO']).trim()||'-';x.SETOR=String(x.SETOR).trim()||'-';x.TURNO=String(x.TURNO).trim()||'-';
+      x.NT=String(x.NT).trim()||'-';x.BAREMO=String(x.BAREMO).trim()||'-';x.CARRO=String(x.PREFIXO).trim()||'-';return x});
+  return {rows,nome};
+}
+function renderE(){
+  const R=eRows,A=R.reduce((a,r)=>a+r.AV,0),prod=R.filter(r=>r.PRODUTIVO==='PRODUTIVO').length;
+  const inc=new Set(R.map(r=>r['INCIDÊNCIA'])).size,dts=R.map(r=>r.DATA).filter(Boolean).sort();
+  const fmtD=d=>d.split('-').reverse().join('/'),semV=R.filter(r=>!r.AV).length;
+  const k=[['Linhas',int(R.length)],['Incidências únicas',int(inc)],['Valor total (TOTAL)',brl(A)],
+   ['Produtivos',int(prod)+' ('+Math.round(prod/R.length*100)+'%)'],['Improdutivos',int(R.length-prod)],
+   ['Sem valor (TOTAL vazio/0)',int(semV)],['Polos',int(new Set(R.map(r=>r.POLO)).size)+' · outros polos: '+brl(R.filter(r=>r.ORIGEM==='EXTENSÃO').reduce((a,r)=>a+r.AV,0))],['Período',dts.length?fmtD(dts[0])+' a '+fmtD(dts[dts.length-1]):'-']];
+  $('e-kpis').innerHTML=k.map(([a,b])=>'<div class="kpi"><span>'+a+'</span><strong>'+b+'</strong></div>').join('');
+  const G=key=>group(key,null,R),byV=(a,b)=>b.av-a.av,fm=v=>brl(v),top=(a,n)=>a.slice(0,n);
+  hbar('e-c-polo',G('POLO').sort(byV),g=>g.av,fm);
+  hbar('e-c-setor',G('SETOR MACRO').sort(byV),g=>g.av,fm);
+  hbar('e-c-turno',G('TURNO').sort((a,b)=>a.k<b.k?-1:1),g=>g.av,fm);
+  hbar('e-c-prod',G('PRODUTIVO').sort((a,b)=>b.n-a.n),g=>g.n,int,{'PRODUTIVO':'#b9c775','IMPRODUTIVO':'#ce9682'});
+  hbar('e-c-nt',G('NT').sort(byV),g=>g.av,fm);
+  hbar('e-c-pref',top(G('CARRO').sort(byV),10),g=>g.av,fm);
+  const dia=G('DATA').filter(g=>g.k).sort((a,b)=>a.k<b.k?-1:1);
+  diaChart('e-c-dia',dia);
+  tbl('e-t-polo',G('POLO').sort(byV),'Polo',{prodCol:true});
+  tbl('e-t-setor',G('SETOR MACRO').sort(byV),'Setor macro',{prodCol:true});
+  tbl('e-t-dia',dia.map(g=>({...g,k:fmtD(g.k)})),'Data');
+  tbl('e-t-bar',top(G('BAREMO').sort(byV),15),'Baremo',{bars:false,foot:false});
+  tbl('e-t-pref',top(G('CARRO').sort(byV),15),'Prefixo (CARRO)',{prodCol:true,foot:false});
+  $('outE').style.display='block';drawTeams('e');
+}
+
+/* ---------- Painel de equipes ---------- */
+const TEAM={c:{src:()=>rows,key:'CARRO'},e:{src:()=>eRows,key:'CARRO'}};
+function drawTeams(p){
+  const {src,key}=TEAM[p],cs=p==='c'?$('c-tc').value:'',base=src(),cityOf=new Map();
+  base.forEach(r=>{const m=cityOf.get(r[key])||new Set();m.add(p==='c'?r.Cidade:r.POLO);cityOf.set(r[key],m)});
+  const cb=g=>{const m=cityOf.get(g.k);if(!m)return '';const l=[...m].sort();return '<span class="cty '+(l.length===1&&l[0]==='MAGÉ'?'mag':l.length===1&&l[0]!=='SEM INFORMAÇÃO'?'nit':'mix')+'">'+esc(l.join(' + '))+'</span>'};
+  const all=group(key,null,cs?base.filter(r=>r.Cidade===cs):base),tot=all.reduce((a,g)=>a+g.av,0)||1;
+  const rank=new Map(all.slice().sort((a,b)=>b.av-a.av).map((g,i)=>[g.k,i+1]));
+  const q=$(p+'-tq').value.trim().toLowerCase(),so=$(p+'-ts').value;
+  let l=all.filter(g=>!q||String(g.k).toLowerCase().includes(q));
+  l.sort(so==='k'?(a,b)=>String(a.k).localeCompare(String(b.k),'pt-BR',{numeric:true}):(a,b)=>b[so]-a[so]);
+  const mx=Math.max(...all.map(g=>g.av),1);
+  $(p+'-tn').textContent=int(l.length)+' de '+int(all.length)+' equipes · '+brl(l.reduce((a,g)=>a+g.av,0));
+  $(p+'-tg').innerHTML=l.map(g=>{const r=rank.get(g.k);return '<div class="tc"><div class="h"><span class="rk '+(r<=3?'r'+r:'')+'">#'+r+'</span><span title="'+esc(g.k)+'">'+esc(g.k)+'</span>'+cb(g)+'</div>'+
+    '<div class="v">'+brl(g.av)+'</div><div class="pb"><i style="width:'+(g.av/mx*100)+'%"></i></div>'+
+    '<div class="m"><span>Quantidade<b>'+int(g.n)+'</b></span><span>Ticket médio<b>'+brl(g.n?g.av/g.n:0)+'</b></span><span>Produtivos<b>'+(g.n?Math.round(g.p/g.n*100):0)+'%</b></span></div>'+
+    '<small>'+(g.av/tot*100).toFixed(1).replace('.',',')+'% do valor total</small></div>'}).join('')||'<div class="sub">Nenhuma equipe encontrada.</div>';
+}
+['c','e'].forEach(p=>{$(p+'-tq').oninput=()=>drawTeams(p);$(p+'-ts').onchange=()=>drawTeams(p)});$('c-tc').onchange=()=>drawTeams('c');
+
+/* ---------- Aba RESUMO (aba RELATORIO) ---------- */
+function msgR(t,err){const m=$('msgR');m.textContent=t;m.style.color=err?'var(--bad)':'var(--mut)';m.style.display=t?'':'none'}
+function chartsR(A,P){
+  const sh=v=>v>=1e6?'R$ '+(v/1e6).toLocaleString('pt-BR',{maximumFractionDigits:1})+' mi':v>=1e3?'R$ '+Math.round(v/1e3).toLocaleString('pt-BR')+' mil':'R$ '+Math.round(v);
+  const pc=v=>(v*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+  const COL={meta:'#999f8d',real:'#c4c65e',proj:'#d8c39b'},tone=v=>v>=1?'#b9c775':v>=.7?'#d7bf86':'#ce9682';
+  let o='<div class="rg summary-charts">';
+  {const S=[['Meta do mês','meta'],['Realizado','real'],['Projeção','proj']];
+   o+='<div class="card full compare-card"><div class="chart-title"><h2>Meta × Realizado × Projeção</h2><span class="chart-caption">PERFORMANCE DO CICLO</span></div><div class="compare-grid">'+A.map((a,index)=>{
+     const mx=Math.max(1,...S.map(s=>a[s[1]]||0));
+     return '<section class="comparison"><div class="comparison-heading"><span class="comparison-index">0'+(index+1)+'</span><h3>'+esc(a.n)+'</h3></div>'+S.map(s=>{const v=a[s[1]],extra=s[1]!=='meta'&&v!=null&&a.meta?pc(v/a.meta)+' da meta':'';
+       return '<div class="comparison-metric '+s[1]+'"><div class="comparison-label"><span>'+s[0]+'</span><small>'+extra+'</small></div><strong class="'+(v==null?'unavailable':'')+'">'+(v==null?'indisponível':brl(v))+'</strong><div class="metric-track '+(v==null?'missing':'')+'"><i style="width:'+(v==null?0:Math.max(0,v/mx*100))+'%;--bar:'+COL[s[1]]+'"></i></div></div>'}).join('')+'</section>'}).join('')+'</div><div class="lg">'+S.map(s=>'<span><i style="background:'+COL[s[1]]+'"></i>'+s[0]+'</span>').join('')+'<span class="legend-note">Escala própria por operação</span></div></div>'}
+  {const vals=A.map(a=>a.pct).filter(v=>v!=null),mx=Math.max(1,...vals)*1.08;
+   o+='<div class="card goal-card"><h2>% de atingimento da meta</h2>'+A.map(a=>{const v=a.pct;
+     return '<div class="goal-row"><div class="goal-heading"><b>'+esc(a.n)+'</b><strong class="'+(v==null?'unavailable':'')+'" style="'+(v==null?'':'color:'+tone(v))+'">'+(v==null?'indisponível':pc(v))+'</strong></div><div class="goal-track '+(v==null?'missing':'')+'">'+(v==null?'':'<i style="width:'+Math.max(0,v/mx*100)+'%;--bar:'+tone(v)+'"></i><span class="goal-target" style="left:'+(100/mx)+'%" title="100% da meta"></span>')+'</div></div>'}).join('')+'<div class="lg goal-legend"><span><i style="background:#b9c775"></i>≥ 100%</span><span><i style="background:#d7bf86"></i>70% a 99%</span><span><i style="background:#ce9682"></i>Abaixo de 70%</span></div><p class="chart-note">Linha tracejada: 100% da meta.</p></div>'}
+  {const e=A[0].real,c=A[1].real;
+   o+='<div class="card composition-card"><h2>Composição do realizado</h2>';
+   if(e!=null&&c!=null&&e+c>0){const tot=e+c,r=74,C=2*Math.PI*r,de=C*e/tot;
+     o+='<div class="composition"><svg viewBox="0 0 200 200" class="composition-ring" role="img" aria-label="Composição do realizado: Comercial '+pc(c/tot)+', Emergência '+pc(e/tot)+'"><circle cx="100" cy="100" r="91" class="ring-outline"/><circle cx="100" cy="100" r="'+r+'" fill="none" stroke="#c4c65e" stroke-width="20"/><circle cx="100" cy="100" r="'+r+'" fill="none" stroke="#8ca488" stroke-width="20" stroke-dasharray="'+de+' '+(C-de)+'" transform="rotate(-90 100 100)"/><text x="100" y="94" text-anchor="middle" class="ring-label">REALIZADO</text><text x="100" y="118" text-anchor="middle" class="ring-number">'+sh(tot)+'</text></svg><div class="composition-stats">'+[['Comercial',c,'#c4c65e'],['Emergência',e,'#8ca488']].map(s=>'<div><span><i style="background:'+s[2]+'"></i>'+s[0]+'<b>'+pc(s[1]/tot)+'</b></span><strong>'+brl(s[1])+'</strong></div>').join('')+'</div></div>';
+   }else{o+='<div class="chart-empty">Sem valores disponíveis para compor o realizado.</div>'}o+='</div>'}
+  {const rs=A.filter(a=>a.meta!=null&&a.real!=null);
+   o+='<div class="card remaining-card"><h2>Falta para a meta do mês</h2>';
+   if(rs.length)o+=rs.map(a=>{const f=a.meta-a.real,ok=f<=0,hasMeta=a.meta>0,p=hasMeta?Math.min(a.real/a.meta,1)*100:0;
+     return '<div class="remaining-row"><b>'+esc(a.n)+'</b><div class="remaining-value">'+(!hasMeta?'<span class="unavailable">Sem meta definida</span>':ok?'<strong style="color:#b9c775">Meta batida</strong><small>+'+brl(-f)+'</small>':'<small>Faltam</small><strong>'+brl(f)+'</strong>')+'</div><div class="metric-track '+(!hasMeta?'missing':'')+'"><i style="width:'+Math.max(0,p)+'%;--bar:#c4c65e"></i></div><small class="remaining-caption">'+brl(a.real)+' de '+brl(a.meta)+(hasMeta?' · '+p.toFixed(1).replace('.',',')+'%':'')+'</small></div>'}).join('');
+   else o+='<div class="chart-empty">Meta e realizado indisponíveis.</div>';o+='</div>'}
+  {const mk=arr=>{const m={};arr.forEach(r=>{if(r.DATA)m[r.DATA]=(m[r.DATA]||0)+(r.AV||0)});return m};
+   const SER=[['Comercial','#c4c65e',mk(P.rows.filter(r=>r.ORIGEM==='COMERCIAL'))],['Perdas','#8ca488',mk(P.rows.filter(r=>r.ORIGEM==='PERDAS'))],['Emergência','#d8c39b',mk(P.e)]].filter(s=>Object.keys(s[2]).length);
+   const ds=[...new Set(SER.flatMap(s=>Object.keys(s[2])))].sort();
+   if(ds.length>1){const W=1000,H=320,L=78,R=24,Tp=28,B=34,pw=W-L-R,ph=H-Tp-B;
+     const cum=SER.map(s=>{let a=0;return ds.map(d=>a+=s[2][d]||0)}),mx=Math.max(1,...cum.flat())*1.12,X=i=>L+pw*i/(ds.length-1),Y=v=>Tp+ph-ph*v/mx;
+     let g='<defs>'+SER.map((s,k)=>'<linearGradient id="cumulative-'+k+'" x1="0" y1="0" x2="0" y2="1"><stop stop-color="'+s[1]+'" stop-opacity=".14"/><stop offset="1" stop-color="'+s[1]+'" stop-opacity="0"/></linearGradient>').join('')+'</defs>';
+     for(let i=0;i<=4;i++){const y=Tp+ph-ph*i/4;g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'" class="chart-grid"/><text x="'+(L-12)+'" y="'+(y+3)+'" text-anchor="end" class="axis-label">'+sh(mx*i/4)+'</text>'}
+     const st=Math.max(1,Math.ceil(ds.length/10));ds.forEach((d,i)=>{if(i%st===0||i===ds.length-1)g+='<text x="'+X(i)+'" y="'+(H-12)+'" text-anchor="middle" class="axis-label">'+d.slice(8,10)+'/'+d.slice(5,7)+'</text>'});
+     SER.forEach((s,k)=>{const pts=cum[k].map((v,i)=>X(i).toFixed(1)+','+Y(v).toFixed(1)).join(' ');
+       g+='<polygon points="'+L+','+Y(0)+' '+pts+' '+X(ds.length-1)+','+Y(0)+'" fill="url(#cumulative-'+k+')"/><polyline class="cumulative-line" fill="none" stroke="'+s[1]+'" stroke-width="2.5" stroke-linejoin="round" points="'+pts+'"/>';
+       cum[k].forEach((v,i)=>{g+='<circle class="trend-point" tabindex="0" role="img" aria-label="'+esc(s[0]+' '+ds[i]+': '+brl(v))+'" cx="'+X(i)+'" cy="'+Y(v)+'" r="3" fill="'+s[1]+'"><title>'+esc(s[0]+' · '+ds[i].split('-').reverse().join('/')+' · '+brl(v))+'</title></circle>'});
+       g+='<text x="'+(X(ds.length-1)-4)+'" y="'+(Y(cum[k][ds.length-1])-10)+'" text-anchor="end" font-size="11" font-weight="700" fill="'+s[1]+'">'+sh(cum[k][ds.length-1])+'</text>'});
+     o+='<div class="card full trend-card"><div class="chart-title"><h2>Evolução diária acumulada</h2><span class="chart-caption">VALOR AV · PERÍODO COMPLETO</span></div><div class="trend-scroll"><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Evolução diária acumulada por operação">'+g+'</svg></div><div class="lg">'+SER.map(s=>'<span><i style="background:'+s[1]+'"></i>'+s[0]+'</span>').join('')+'<span class="legend-note">Emergência inclui os outros polos</span></div></div>'}}
+  return o+'</div>';
+}
+function procR(wb,f){
+  try{
+    const ws=wb.Sheets['RELATORIO'];
+    if(!ws){msgR('A aba “RELATORIO” não foi encontrada. Abas disponíveis: '+wb.SheetNames.join(', '),1);return}
+    const nm=t=>String(t).trim().replace(/\s+/g,' ').toUpperCase(),idx={};
+    for(let r=1;r<=60;r++){const c=ws['D'+r];if(c&&c.v!=null&&c.v!==''&&!(nm(c.v) in idx))idx[nm(c.v)]=r}
+    const cell=name=>{const r=idx[nm(name)];if(!r)return null;const c=ws['E'+r];if(!c||c.t==='e'||c.v===''||c.v==null)return null;return typeof c.v==='number'?c.v:null};
+    const title=(ws['B4']&&String(ws['B4'].v).trim())||'RESUMO DO CICLO';
+    const mon=v=>v===null?'<span style="color:var(--mut)">indisponível</span>':(v===0?'-':v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}));
+    const pct=v=>v===null?'<span style="color:var(--mut)">indisponível</span>':(v*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+    const used=[];
+    const line=(name,kind)=>{const v=cell(name);used.push(v);
+      const bar=kind==='p'&&v!==null?'<div class="bar2"><i style="width:'+Math.max(0,Math.min(v*100,100))+'%;background:'+(v>=1?'#b9c775':v>=.7?'#d7bf86':'#ce9682')+'"></i></div>':'';
+      return '<div class="ln '+(kind==='p'?'pc':'')+(kind==='b'?' big':'')+'"><span>'+esc(name)+'</span><span class="cur">'+(kind==='p'?'':'R$')+'</span><span class="val">'+(kind==='p'?pct(v):mon(v))+'</span></div>'+bar},
+      sec=(t,rs)=>'<div class="sec"><div class="st">'+t+'</div>'+rs.join('')+'</div>';
+    const html=
+     sec('EMERGÊNCIA',[line('EMERGÊNCIA - META MÊS'),line('EMERGÊNCIA - META PROPORCIONAL'),line('REALIZADO - EMERGÊNCIA'),line('PROJEÇÃO EMERGÊNCIA'),line('% EMERGÊNCIA','p')])+
+     sec('COMERCIAL',[line('COMERCIAL - META MÊS'),line('COMERCIAL - META PROPORCIONAL'),line('REALIZADO - COMERCIAL'),line('PROJEÇÃO COMERCIAL'),line('% COMERCIAL','p')])+
+     sec('BASE GERAL',[line('META BASE','b'),line('REALIZADO','b'),line('PROJEÇÃO BASE','b'),line('% BASE','p')]);
+    const meta=cell('META BASE'),real=cell('REALIZADO'),proj=cell('PROJEÇÃO BASE'),pb=cell('% BASE');
+    const kp=(x,y)=>'<div class="kpi"><span>'+x+'</span><strong>'+y+'</strong></div>';
+    $('outR').innerHTML='<div class="rk4">'+kp('Meta base',meta===null?'-':brl(meta))+kp('Realizado',real===null?'-':brl(real))+kp('Projeção base',proj===null?'-':brl(proj))+kp('% Base',pct(pb))+'</div>'+
+     chartsR([{n:'Emergência',meta:cell('EMERGÊNCIA - META MÊS'),real:cell('REALIZADO - EMERGÊNCIA'),proj:cell('PROJEÇÃO EMERGÊNCIA'),pct:cell('% EMERGÊNCIA')},{n:'Comercial',meta:cell('COMERCIAL - META MÊS'),real:cell('REALIZADO - COMERCIAL'),proj:cell('PROJEÇÃO COMERCIAL'),pct:cell('% COMERCIAL')},{n:'Base geral',meta:meta,real:real,proj:proj,pct:pb}],{rows:rowsAll,e:eRowsAll})+
+     '<div class="rs"><div class="hd">'+esc(title)+'</div>'+html+'</div>';
+    const nulos=used.filter(v=>v===null).length;
+    msgR(nulos?nulos+' campo(s) sem valor ou com erro (#DIV/0!) na planilha, marcados como “indisponível”.':'');
+    $('outR').style.display='block';
+  }catch(err){msgR('Erro ao ler a aba RELATORIO: '+err.message,1)}
+}
+</script>
+<footer class="footer"><span>PSE ENERGIA / ANÁLISE COMERCIAL & OPERACIONAL</span><span>Desenvolvido por Vinicius de Moraes</span></footer>
+</body>
+</html>
